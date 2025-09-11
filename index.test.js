@@ -84,3 +84,18 @@ test('scans examples/cdnjs_example.html and finds the CDNJS script tag', () => {
     expect(scriptTags[0].fullTag).toBe('<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>');
     expect(scriptTags[0].srcUrl).toBe('https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js');
 });
+
+test('scans examples/defer_script.html and finds the deferred CDN script tag', () => {
+    const htmlContent = fs.readFileSync(path.join(__dirname, 'examples/defer_script.html'), 'utf8');
+    const scriptTags = scanForCdnScripts(htmlContent);
+    expect(scriptTags).toHaveLength(1);
+    expect(scriptTags[0].fullTag).toBe('<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" defer></script>');
+    expect(scriptTags[0].srcUrl).toBe('https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js');
+});
+
+test('extracts \'@latest\' version correctly', () => {
+    const { extractVersionFromUrl } = require('./index');
+    const url = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/js/bootstrap.min.js';
+    const version = extractVersionFromUrl(url);
+    expect(version).toBe('latest_found');
+});

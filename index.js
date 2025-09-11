@@ -5,6 +5,10 @@ const { hideBin } = require('yargs/helpers');
 const fs = require('fs');
 
 function extractVersionFromUrl(url) {
+    // Check for '@latest' specifically
+    if (url.includes('@latest')) {
+        return 'latest_found';
+    }
     // Regex to capture common version patterns in URLs
     const versionRegex = /(?:\/v?(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$)|@(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$))/;
     const match = url.match(versionRegex);
@@ -61,7 +65,9 @@ if (require.main === module) {
                 let output = script.fullTag;
                 if (argv.extractVersion) {
                     const version = extractVersionFromUrl(script.srcUrl);
-                    if (version) {
+                    if (version === 'latest_found') {
+                        output += ' (Version: @latest - Check CDN for specific version)';
+                    } else if (version) {
                         output += ` (Version: ${version})`;
                     } else {
                         output += ' (Version: Not found)';
