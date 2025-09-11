@@ -1,0 +1,2 @@
+paths-ignore:
+  - "doc/scripts/prettify/lang-css.js"
