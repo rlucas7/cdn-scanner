@@ -53,7 +53,7 @@ function scanForCdnScripts(data) {
 
     while ((match = scriptTagRegex.exec(withoutComments)) !== null) {
         const fullTag = match[0];
-        const srcUrl = match[1];
+        const srcUrl = match[2];
         cdnScripts.push({ fullTag, srcUrl });
     }
     return cdnScripts;
