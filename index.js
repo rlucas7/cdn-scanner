@@ -47,7 +47,7 @@ function extractVersionFromUrl(url, versionType) {
  */
 function scanForCdnScripts(data) {
     const withoutComments = data.replace(/<!--[\s\S]*?-->/g, '');
-    const scriptTagRegex = /<script\s+[^>]*src="(https?:\/\/[^">]+)"[^>]*><\/script>/g;
+    const scriptTagRegex = /<script\b[^>]*src\s*=\s*(['"])(https?:\/\/[^'"]+)\1[^>]*><\/script>/gi;
     let match;
     const cdnScripts = [];
 
