@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest --verbose",
-    "docs": "jsdoc index.js"
+    "docs": "jsdoc index.js -d doc"
   },
   "keywords": [],
   "author": "",

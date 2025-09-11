@@ -54,15 +54,15 @@ npm test
 
 ## Viewing API Documentation
 
-To view the generated API documentation, open the `out/index.html` file in your web browser:
+To view the generated API documentation, open the `doc/index.html` file in your web browser:
 
 ```bash
 # On macOS
-open out/index.html
+open doc/index.html
 
 # On Linux
-x-www-browser out/index.html
+x-www-browser doc/index.html
 
 # On Windows
-start out/index.html
+start doc/index.html
 ```
