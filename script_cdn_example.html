@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDN Script Example</title>
+    <!-- Include Axios from a CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>CDN Script Tag Example</h1>
+    <p id="data-display">Loading data...</p>
+
+    <script>
+        // Use the Axios library, which was loaded via the CDN
+        axios.get('https://jsonplaceholder.typicode.com/todos/1')
+            .then(function (response) {
+                // handle success
+                const dataDisplay = document.getElementById('data-display');
+                dataDisplay.textContent = `Title: ${response.data.title}, Completed: ${response.data.completed}`;
+            })
+            .catch(function (error) {
+                // handle error
+                console.log(error);
+                const dataDisplay = document.getElementById('data-display');
+                dataDisplay.textContent = 'Error loading data.';
+            });
+    </script>
+</body>
+</html>
