@@ -4,24 +4,40 @@ const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const fs = require('fs');
 const path = require('path');
+const { cosmiconfigSync } = require('cosmiconfig');
+
+const moduleName = 'cdn-scanner';
+const explorerSync = cosmiconfigSync(moduleName);
 
 /**
  * Extracts a version number from a given URL, or identifies if '@latest' is used.
  * @param {string} url - The URL to extract the version from.
+ * @param {string} versionType - The type of version to extract ('semantic' or 'date').
  * @returns {string|null} The extracted version string, 'latest_found', or null if no version is found.
  */
-function extractVersionFromUrl(url) {
+function extractVersionFromUrl(url, versionType) {
     // Check for '@latest' specifically
     if (url.includes('@latest')) {
         return 'latest_found';
     }
-    // Regex to capture common version patterns in URLs
-    const versionRegex = /(?:\/v?(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$)|@(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$))/;
-    const match = url.match(versionRegex);
-    if (match) {
-        return match[1] || match[2]; // Return the captured group
+
+    let version;
+    if (versionType === 'date') {
+        // Regex for date-based versions (YYYYMMDD or YYYY-MM-DD)
+        const dateVersionRegex = /(?:\/(\d{4}(?:-\d{2}){2}|\d{8})(?:\/|$))/;
+        const match = url.match(dateVersionRegex);
+        if (match) {
+            version = match[1];
+        }
+    } else { // Default to semantic
+        // Regex to capture common semantic version patterns in URLs
+        const semanticVersionRegex = /(?:\/v?(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$)|@(\d+(?:\.\d+){0,2}(?:[\w.-]+)?)(?:\/|$))/;
+        const match = url.match(semanticVersionRegex);
+        if (match) {
+            version = match[1] || match[2];
+        }
     }
-    return null;
+    return version || null;
 }
 
 /**
@@ -61,7 +77,7 @@ function processFile(filePath, argv) {
             cdnScripts.forEach(script => {
                 let output = script.fullTag;
                 if (argv.extractVersion) {
-                    const version = extractVersionFromUrl(script.srcUrl);
+                    const version = extractVersionFromUrl(script.srcUrl, argv.versionType);
                     if (version === 'latest_found') {
                         output += ' (Version: @latest - Check CDN for specific version)';
                     } else if (version) {
@@ -100,7 +116,7 @@ function scanDirectory(directoryPath, argv) {
 }
 
 if (require.main === module) {
-    const argv = yargs(hideBin(process.argv))
+    const cliArgv = yargs(hideBin(process.argv))
         .option('file', {
             alias: 'f',
             description: 'Input HTML file to scan',
@@ -117,6 +133,12 @@ if (require.main === module) {
             type: 'boolean',
             default: false,
         })
+        .option('version-type', {
+            description: 'Specify version type to extract (semantic or date)',
+            type: 'string',
+            choices: ['semantic', 'date'],
+            default: 'semantic',
+        })
         .check((argv) => {
             if (!argv.file && !argv.directory) {
                 throw new Error('Error: Either --file or --directory must be provided.');
@@ -130,6 +152,12 @@ if (require.main === module) {
         .alias('help', 'h')
         .argv;
 
+    const loadedConfig = explorerSync.search();
+    const config = loadedConfig ? loadedConfig.config : {};
+
+    // Merge CLI arguments with config file settings, CLI arguments take precedence
+    const argv = { ...config, ...cliArgv };
+
     if (argv.file) {
         processFile(argv.file, argv);
     } else if (argv.directory) {
@@ -138,3 +166,5 @@ if (require.main === module) {
 }
 
 module.exports = { scanForCdnScripts, extractVersionFromUrl, processFile, scanDirectory };
+
+

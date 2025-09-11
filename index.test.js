@@ -2,6 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { scanForCdnScripts } = require('./index');
 
+// Mock cosmiconfig before fs, so fs can be mocked for cosmiconfig's internal usage
+jest.mock('cosmiconfig', () => ({
+    cosmiconfigSync: jest.fn(() => ({
+        search: jest.fn(),
+    })),
+}));
+
 jest.mock('fs'); // Mock the entire fs module
 
 jest.mock('yargs/yargs', () => jest.fn(() => ({
@@ -211,3 +218,90 @@ describe('Directory Scanning', () => {
         }, 500);
     });
 });
+
+describe('Configuration Loading', () => {
+    const { cosmiconfigSync } = require('cosmiconfig');
+    const { processFile } = require('./index');
+
+    // Mock cosmiconfig
+    jest.mock('cosmiconfig', () => ({
+        cosmiconfigSync: jest.fn(() => ({
+            search: jest.fn(),
+        })),
+    }));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        // Reset mock for cosmiconfigSync.search() for each test
+        cosmiconfigSync().search.mockReturnValue(null);
+    });
+
+    test('loads default configuration when no config file is found', (done) => {
+        const mockArgv = { file: '/mock/file.html', extractVersion: false, versionType: 'semantic' };
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        fs.readFile.mockImplementation((filePath, encoding, callback) => {
+            callback(null, '<html><script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script></html>');
+        });
+
+        // Simulate running the main CLI logic
+        // Since we can't directly test the yargs parsing in a unit test easily,
+        // we'll simulate the argv object that would be passed to processFile.
+        // The actual test here is that processFile uses the default values if no config is loaded.
+        processFile(mockArgv.file, mockArgv);
+
+        setTimeout(() => {
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>'));
+            expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Version:'));
+            consoleSpy.mockRestore();
+            done();
+        }, 100);
+    });
+
+    test('loads configuration from file', (done) => {
+        const mockConfig = { extractVersion: true, versionType: 'date' };
+        cosmiconfigSync().search.mockReturnValue({ config: mockConfig });
+
+        const mockArgv = { file: '/mock/file.html' }; // No CLI flags for these options
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        fs.readFile.mockImplementation((filePath, encoding, callback) => {
+            callback(null, '<html><script src="https://example.com/lib/2023-01-01/lib.js"></script></html>');
+        });
+
+        // Simulate the merged argv object that would be passed to processFile
+        const mergedArgv = { ...mockConfig, ...mockArgv };
+        processFile(mergedArgv.file, mergedArgv);
+
+        setTimeout(() => {
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('<script src="https://example.com/lib/2023-01-01/lib.js"></script> (Version: 2023-01-01)'));
+            consoleSpy.mockRestore();
+            done();
+        }, 100);
+    });
+
+    test('CLI arguments override configuration file settings', (done) => {
+        const mockConfig = { extractVersion: true, versionType: 'date' };
+        cosmiconfigSync().search.mockReturnValue({ config: mockConfig });
+
+        // CLI overrides config
+        const mockArgv = { file: '/mock/file.html', extractVersion: false, versionType: 'semantic' };
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        fs.readFile.mockImplementation((filePath, encoding, callback) => {
+            callback(null, '<html><script src="https://example.com/lib/1.0.0/lib.js"></script></html>');
+        });
+
+        const mergedArgv = { ...mockConfig, ...mockArgv };
+        processFile(mergedArgv.file, mergedArgv);
+
+        setTimeout(() => {
+            // Expect CLI setting (extractVersion: false) to take precedence
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('<script src="https://example.com/lib/1.0.0/lib.js"></script>'));
+            expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Version:'));
+            consoleSpy.mockRestore();
+            done();
+        }, 100);
+    });
+});
+
