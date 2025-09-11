@@ -10,7 +10,7 @@ npm install
 
 ## Usage
 
-To scan an HTML file:
+To scan a single HTML file:
 
 ```bash
 node index.js --file <path_to_html_file>
@@ -20,6 +20,18 @@ Example:
 
 ```bash
 node index.js --file examples/script_cdn_example.html
+```
+
+To scan an entire directory for HTML files:
+
+```bash
+node index.js --directory <path_to_directory>
+```
+
+Example:
+
+```bash
+node index.js --directory examples/
 ```
 
 ### Extracting Version Information

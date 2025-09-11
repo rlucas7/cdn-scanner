@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { scanForCdnScripts } = require('./index');
 
+jest.mock('fs'); // Mock the entire fs module
+
 jest.mock('yargs/yargs', () => jest.fn(() => ({
     option: jest.fn(() => ({
         help: jest.fn(() => ({
@@ -16,6 +18,41 @@ jest.mock('yargs/helpers', () => ({
     hideBin: jest.fn(),
 }));
 
+// Mock fs.readFileSync for individual file tests
+beforeEach(() => {
+    fs.readFileSync.mockImplementation((filePath, encoding) => {
+        const fileName = path.basename(filePath);
+        switch (fileName) {
+            case 'script_cdn_example.html':
+                return '<html><script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script></html>';
+            case 'no_external_scripts.html':
+                return '<html><body></body></html>';
+            case 'multiple_external_scripts.html':
+                return '<html><script src="https://code.jquery.com/jquery-3.6.0.min.js"></script><script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script></html>';
+            case 'mixed_scripts.html':
+                return '<html><script src="https://code.jquery.com/jquery-3.6.0.min.js"></script><script>console.log(\"hello\");</script><script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script></html>';
+            case 'commented_out_script.html':
+                return '<html><!-- <script src=\"https://cdn.jsdelivr.net/npm/commented.js\"></script> --></html>';
+            case 'async_script.html':
+                return '<html><script src="https://cdn.jsdelivr.net/npm/lodash/lodash.min.js" async></script></html>';
+            case 'async_before_src.html':
+                return '<html><script async src="https://cdn.jsdelivr.net/npm/moment/moment.min.js"></script></html>';
+            case 'google_cdn_example.html':
+                return '<html><script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script></html>';
+            case 'cdnjs_example.html':
+                return '<html><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script></html>';
+            case 'defer_script.html':
+                return '<html><script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" defer></script></html>';
+            default:
+                return '';
+        }
+    });
+});
+
+afterEach(() => {
+    jest.restoreAllMocks();
+});
+
 test('scans examples/script_cdn_example.html and finds the correct CDN script tag', () => {
     const htmlContent = fs.readFileSync(path.join(__dirname, 'examples/script_cdn_example.html'), 'utf8');
     const scriptTags = scanForCdnScripts(htmlContent);
@@ -23,6 +60,7 @@ test('scans examples/script_cdn_example.html and finds the correct CDN script ta
     expect(scriptTags[0].fullTag).toBe('<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>');
     expect(scriptTags[0].srcUrl).toBe('https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js');
 });
+
 
 test('scans examples/no_external_scripts.html and finds none', () => {
     const htmlContent = fs.readFileSync(path.join(__dirname, 'examples/no_external_scripts.html'), 'utf8');
@@ -98,4 +136,78 @@ test('extracts \'@latest\' version correctly', () => {
     const url = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/js/bootstrap.min.js';
     const version = extractVersionFromUrl(url);
     expect(version).toBe('latest_found');
+});
+
+describe('Directory Scanning', () => {
+    const { processFile, scanDirectory } = require('./index');
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('scans a directory and processes HTML files', (done) => {
+        const mockArgv = { extractVersion: false };
+        const mockDirectoryPath = '/mock/test/dir';
+
+        // Mock fs.readdir to return directory entries
+        fs.readdir.mockImplementation((dirPath, options, callback) => {
+            if (dirPath === mockDirectoryPath) {
+                callback(null, [
+                    { name: 'file1.html', isDirectory: () => false, isFile: () => true },
+                    { name: 'subdir', isDirectory: () => true, isFile: () => false },
+                    { name: 'file2.txt', isDirectory: () => false, isFile: () => true }, // Non-HTML file
+                ]);
+            } else if (dirPath === path.join(mockDirectoryPath, 'subdir')) {
+                callback(null, [
+                    { name: 'nested.html', isDirectory: () => false, isFile: () => true },
+                ]);
+            } else {
+                callback(new Error('Unknown directory'));
+            }
+        });
+
+        // Mock fs.readFile to return content for HTML files
+        fs.readFile.mockImplementation((filePath, encoding, callback) => {
+            if (filePath.endsWith('.html')) {
+                callback(null, '<html><script src="https://cdn.example.com/lib.js"></script></html>');
+            } else {
+                callback(new Error('Not an HTML file'));
+            }
+        });
+
+        // Mock console.log to capture output
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        scanDirectory(mockDirectoryPath, mockArgv);
+
+        // Use a timeout to allow async operations to complete
+        setTimeout(() => {
+            // Expect processFile to be called for each HTML file
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Found script tags with CDN links in /mock/test/dir/file1.html:'));
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Found script tags with CDN links in /mock/test/dir/subdir/nested.html:'));
+            expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('file2.txt'));
+
+            consoleSpy.mockRestore();
+            done();
+        }, 100);
+    });
+
+    test('handles directory read errors', (done) => {
+        const mockArgv = { extractVersion: false };
+        const mockDirectoryPath = '/mock/error/dir';
+
+        fs.readdir.mockImplementation((dirPath, options, callback) => {
+            callback(new Error('Permission denied'));
+        });
+
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        scanDirectory(mockDirectoryPath, mockArgv);
+
+        setTimeout(() => {
+            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Error reading directory /mock/error/dir: Error: Permission denied'));
+            consoleErrorSpy.mockRestore();
+            done();
+        }, 500);
+    });
 });

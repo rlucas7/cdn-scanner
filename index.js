@@ -3,6 +3,7 @@
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const fs = require('fs');
+const path = require('path');
 
 /**
  * Extracts a version number from a given URL, or identifies if '@latest' is used.
@@ -30,7 +31,7 @@ function extractVersionFromUrl(url) {
  */
 function scanForCdnScripts(data) {
     const withoutComments = data.replace(/<!--[\s\S]*?-->/g, '');
-    const scriptTagRegex = /<script\s+[^>]*src="(https?s?:\/\/[^">]+)"[^>]*><\/script>/g;
+    const scriptTagRegex = /<script\s+[^>]*src="(https?:\/\/[^">]+)"[^>]*><\/script>/g;
     let match;
     const cdnScripts = [];
 
@@ -42,35 +43,21 @@ function scanForCdnScripts(data) {
     return cdnScripts;
 }
 
-if (require.main === module) {
-    const argv = yargs(hideBin(process.argv))
-        .option('file', {
-            alias: 'f',
-            description: 'Input file to scan',
-            type: 'string',
-            demandOption: true,
-        })
-        .option('extract-version', {
-            alias: 'v',
-            description: 'Extracts version from CDN URLs if available',
-            type: 'boolean',
-            default: false,
-        })
-        .help()
-        .alias('help', 'h')
-        .argv;
-
-    const filePath = argv.file;
-
+/**
+ * Processes a single file to scan for CDN scripts and logs the results.
+ * @param {string} filePath - The path to the file to process.
+ * @param {Object} argv - The yargs arguments, including extractVersion flag.
+ */
+function processFile(filePath, argv) {
     fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
-            console.error(`Error reading file: ${err}`);
+            console.error(`Error reading file ${filePath}: ${err}`);
             return;
         }
 
         const cdnScripts = scanForCdnScripts(data);
         if (cdnScripts.length > 0) {
-            console.log('Found script tags with CDN links:');
+            console.log(`\nFound script tags with CDN links in ${filePath}:`);
             cdnScripts.forEach(script => {
                 let output = script.fullTag;
                 if (argv.extractVersion) {
@@ -85,10 +72,69 @@ if (require.main === module) {
                 }
                 console.log(output);
             });
-        } else {
-            console.log('No script tags with CDN links found.');
         }
     });
 }
 
-module.exports = { scanForCdnScripts, extractVersionFromUrl };
+/**
+ * Recursively scans a directory for HTML files and processes them.
+ * @param {string} directoryPath - The path to the directory to scan.
+ * @param {Object} argv - The yargs arguments.
+ */
+function scanDirectory(directoryPath, argv) {
+    fs.readdir(directoryPath, { withFileTypes: true }, (err, entries) => {
+        if (err) {
+            console.error(`Error reading directory ${directoryPath}: ${err}`);
+            return;
+        }
+
+        entries.forEach(entry => {
+            const fullPath = path.join(directoryPath, entry.name);
+            if (entry.isDirectory()) {
+                scanDirectory(fullPath, argv);
+            } else if (entry.isFile() && (entry.name.endsWith('.html') || entry.name.endsWith('.htm'))) {
+                processFile(fullPath, argv);
+            }
+        });
+    });
+}
+
+if (require.main === module) {
+    const argv = yargs(hideBin(process.argv))
+        .option('file', {
+            alias: 'f',
+            description: 'Input HTML file to scan',
+            type: 'string',
+        })
+        .option('directory', {
+            alias: 'd',
+            description: 'Input directory to scan recursively for HTML files',
+            type: 'string',
+        })
+        .option('extract-version', {
+            alias: 'v',
+            description: 'Extracts version from CDN URLs if available',
+            type: 'boolean',
+            default: false,
+        })
+        .check((argv) => {
+            if (!argv.file && !argv.directory) {
+                throw new Error('Error: Either --file or --directory must be provided.');
+            }
+            if (argv.file && argv.directory) {
+                throw new Error('Error: Cannot provide both --file and --directory.');
+            }
+            return true;
+        })
+        .help()
+        .alias('help', 'h')
+        .argv;
+
+    if (argv.file) {
+        processFile(argv.file, argv);
+    } else if (argv.directory) {
+        scanDirectory(argv.directory, argv);
+    }
+}
+
+module.exports = { scanForCdnScripts, extractVersionFromUrl, processFile, scanDirectory };
