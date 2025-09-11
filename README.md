@@ -39,3 +39,18 @@ To run the test suite and view code coverage:
 ```bash
 npm test
 ```
+
+## Viewing API Documentation
+
+To view the generated API documentation, open the `out/index.html` file in your web browser:
+
+```bash
+# On macOS
+open out/index.html
+
+# On Linux
+x-www-browser out/index.html
+
+# On Windows
+start out/index.html
+```
