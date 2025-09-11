@@ -13,25 +13,25 @@ npm install
 To scan a single HTML file:
 
 ```bash
-node index.js --file <path_to_html_file>
+cdn-scanner --file <path_to_html_file>
 ```
 
 Example:
 
 ```bash
-node index.js --file examples/script_cdn_example.html
+cdn-scanner --file examples/script_cdn_example.html
 ```
 
 To scan an entire directory for HTML files:
 
 ```bash
-node index.js --directory <path_to_directory>
+cdn-scanner --directory <path_to_directory>
 ```
 
 Example:
 
 ```bash
-node index.js --directory examples/
+cdn-scanner --directory examples/
 ```
 
 ### Extracting Version Information
@@ -39,9 +39,9 @@ node index.js --directory examples/
 To extract version numbers from CDN URLs, use the `--extract-version` or `-v` flag:
 
 ```bash
-node index.js --file <path_to_html_file> --extract-version
+cdn-scanner --file <path_to_html_file> --extract-version
 # or
-node index.js --file <path_to_html_file> -v
+cdn-scanner --file <path_to_html_file> -v
 ```
 
 ## Running Tests
