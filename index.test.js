@@ -17,7 +17,7 @@ jest.mock('yargs/helpers', () => ({
 }));
 
 test('scans an HTML file and finds the correct CDN script tag', () => {
-    const htmlContent = fs.readFileSync(path.join(__dirname, 'script_cdn_example.html'), 'utf8');
+        const htmlContent = fs.readFileSync(path.join(__dirname, 'examples/script_cdn_example.html'), 'utf8');
     const scriptTags = scanForCdnScripts(htmlContent);
     expect(scriptTags).toHaveLength(1);
     expect(scriptTags[0]).toBe('<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>');
