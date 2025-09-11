@@ -5,7 +5,8 @@ const { hideBin } = require('yargs/helpers');
 const fs = require('fs');
 
 function scanForCdnScripts(data) {
-    const scriptTags = data.match(/<script\s+[^>]*src="https?s?:\/\/[^>]*><\/script>/g);
+    const withoutComments = data.replace(/<!--[\s\S]*?-->/g, '');
+    const scriptTags = withoutComments.match(/<script\s+[^>]*src="https?s?:\/\/[^>]*><\/script>/g);
     return scriptTags || [];
 }
 
