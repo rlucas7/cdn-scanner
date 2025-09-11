@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A CLI tool to scan an input file for all occurrences of <script> tags that inject js from cdns",
   "main": "index.js",
+  "bin": {
+    "cdn-scanner": "index.js"
+  },
   "scripts": {
     "test": "jest --verbose",
     "docs": "jsdoc index.js -d doc"
