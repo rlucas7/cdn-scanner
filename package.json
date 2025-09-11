@@ -4,7 +4,7 @@
   "description": "A CLI tool to scan an input file for all occurrences of <script> tags that inject js from cdns",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +21,7 @@
   "jest": {
     "transformIgnorePatterns": [
       "node_modules/(?!yargs|yargs-parser)"
-    ]
+    ],
+    "collectCoverage": true
   }
 }
